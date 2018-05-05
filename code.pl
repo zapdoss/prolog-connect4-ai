@@ -20,7 +20,7 @@ score(y,0).
 init_top(0):-!.
 init_top(C):-assert(top(C,0)),NewC is C-1, init_top(NewC) .
 
-init(C,R):-
+init(C,R,Picture):-
 	retractall(size(_,_)),
 	retractall(depth(_)),
 	retractall(score(_,_)),
@@ -29,8 +29,6 @@ init(C,R):-
 	assert(score(y,0)),
 	assert(size(C,R)),
 	retractall(top(_,_)),
-	new(Picture, picture('Connect 4')),
-	send(Picture, open),
 	init_top(C),
 	initBoardGUI(C,R,Picture),
 	retractall(piece(_,_,_)),
@@ -103,61 +101,63 @@ check(X,Y):-
 	R is R1 + R2 - 1,
 	R >= 4,!.
 
-
 %%%%%%%%%  IO Rules %%%%%%%%%%%%%
 
 write_piece(r):-write('x').
 write_piece(y):-write('o').
 
-print():-
+print(P):-
 	size(_,Y),
-	print(1,Y).
+	print(1,Y,P).
 
-print(C,R):-
+print(C,R,P):-
 	size(X,_),
 	C == X,
 	R == 1,
 	piece(C,R,Color),
 	write_piece(Color),
 	write('  '),!.
-print(C,R):-
+print(C,R,P):-
 	size(X,_),
 	C == X,
 	R == 1,
 	not(piece(C,R,_)),
 	write('.  '),!.
 
-print(C,R):-
-	size(X,_),
+print(C,R,P):-
+	size(X,Y),
 	NewC is C+1,
 	piece(C,R,Color),
 	write_piece(Color),
+	new(Circle,circle(20)),
+    (Color == r -> send(Circle,fill_pattern,red) ; send(Circle,fill_pattern,yellow)),
+	send(P,display(Circle,point(C * 30, (Y - R) * 30))),
 	write('  '),
 	C < X ,
-	print(NewC,R),!.
-print(C,R):-
+	print(NewC,R,P),!.
+print(C,R,P):-
 	size(X,_),
 	NewC is C+1 ,
 	not(piece(C,R,_)) ,
 	write('.  ') ,
 	C < X   ,
-	print(NewC,R),!.
+	print(NewC,R,P),!.
 
-print(_,R):-
+print(_,R,P):-
 	NewR is R-1 ,
 	writeln(''),
 	R >= 0,
-	print(1,NewR).
+	print(1,NewR,P).
 
-scan(Color):-
+scan(Color,P):-
 	write('\nGive me column '),
 	read(C),
 	insert(C,Color),
 	top(C,R),
-	print(),
+	print(P),
 	(checkStatus(C,R,Color),writeln('');!),!.
-scan(Color):-
-	writeln('Invalid'),scan(Color).
+scan(Color,P):-
+	writeln('Invalid'),scan(Color,P).
 
 printAIlist([]).
 printAIlist([H|T]):-
@@ -193,7 +193,6 @@ insert(C,Color):-
 	assert(score(Color,V1));
 	true.
 
-
 remove(C):-
 	top(C,H),
 	piece(C,H,Color),
@@ -211,7 +210,9 @@ remove(C):-
 %%%%%%%%%%%%  Start Game Rules %%%%%%%%%%%%%%
 
 newGame(C,R):-
-	init(C,R),
+	new(Picture, picture('Connect 4')),
+	send(Picture, open),
+	init(C,R,Picture),
 	createEvalTable(),
 	writeln('Select Computer Strategy [ enter 1 for AI or 2 for Greedy ]:'),
 	read(S),
@@ -222,13 +223,12 @@ newGame(C,R):-
 	        assert(depth(D));
 	    true
 	),
-	game().
+	game(Picture).
 
-game():-
-
+game(P):-
 	draw(),writeln('Draw Situation'),!.
-game():-
-	scan(r),
+game(P):-
+	scan(r,P),
 	win(r),
 	writeln('You Win'),!;
 	writeln('\nComputer Turn:'),
@@ -237,11 +237,11 @@ game():-
 	           depth(D),
 	           doBest(y,D,_,Move),
 		   insert(Move,y),
-		   print(),
+		   print(P),
 	           top(Move,H),
 	           (
 			 check(Move,H),writeln('\nComputer win!');
-	                 not(check(Move,H)),game()
+	                 not(check(Move,H)),game(P)
 		   )
 	).
 
@@ -347,7 +347,6 @@ createEvalTable():-
 	initEvalRow(R),
 	calcEvalRow(R).
 
-
 initEvalCol(_,0):-!.
 initEvalCol(CurRow,CurCol):-
 	NewCol is CurCol - 1,
@@ -360,7 +359,6 @@ initEvalRow(CurRow):-
 	initEvalRow(NewRow),
 	size(C,_),
 	initEvalCol(CurRow,C).
-
 
 calcEvalCol(_,0):-!.
 calcEvalCol(CurRow,CurCol):-
@@ -387,7 +385,6 @@ calcHor(X,Y):-
 	Ne3 is E3+1,retractall(eval(X,Y3,E3)),assert(eval(X,Y3,Ne3)));
 	true.
 
-
 calcVer(X,Y):-
 	(   X1 is X+1, X2 is X+2, X3 is X+3,
 	eval(X,Y,E),eval(X1,Y,E1),eval(X2,Y,E2),eval(X3,Y,E3),
@@ -396,7 +393,6 @@ calcVer(X,Y):-
 	Ne2 is E2+1,retractall(eval(X2,Y,E2)),assert(eval(X2,Y,Ne2)),
 	Ne3 is E3+1,retractall(eval(X3,Y,E3)),assert(eval(X3,Y,Ne3)));
 	true.
-
 
 calcUpDia(X,Y):-
 	(   X1 is X+1, X2 is X+2, X3 is X+3,
