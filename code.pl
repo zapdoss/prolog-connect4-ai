@@ -1,3 +1,5 @@
+:- use_module(library(pce)).
+
 :- dynamic top/2.
 :- dynamic size/2.
 :- dynamic piece/3.
@@ -27,9 +29,26 @@ init(C,R):-
 	assert(score(y,0)),
 	assert(size(C,R)),
 	retractall(top(_,_)),
+	new(Picture, picture('Connect 4')),
+	send(Picture, open),
 	init_top(C),
+	initBoardGUI(C,R,Picture),
 	retractall(piece(_,_,_)),
 	resetStatus().
+
+initBoardGUICol(0,_,_):- !.
+initBoardGUICol(C,R,P):-
+	NewC is C - 1,
+	new(Circle,circle(20)),
+    send(Circle,fill_pattern,white),
+    send(P,display(Circle,point(C * 30, R * 30))),
+	initBoardGUICol(NewC,R,P).
+
+initBoardGUI(_,0,_):- !.
+initBoardGUI(C,R,P):-
+	NewR is R - 1,
+	initBoardGUICol(C,NewR,P),
+	initBoardGUI(C,NewR,P).
 
 %%%%  WIN/LOSE Checking %%%%
 
